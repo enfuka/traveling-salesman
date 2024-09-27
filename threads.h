@@ -26,10 +26,10 @@ private:
 	static void *exec(void *thr);
 
 	// Prevent copying
-	Thread(const Thread& arg);
+	Thread(const Thread &arg);
 
 	// Prevent assignment
-	Thread& operator=(const Thread& rhs);
+	Thread &operator=(const Thread &rhs);
 
 protected:
 	// Pure virtual function, to implement with code thread should run
@@ -37,10 +37,12 @@ protected:
 
 public:
 	// Constructor
-	Thread() {
+	Thread()
+	{
 		mytsp = NULL;
 		_id = 0;
 		my_id = start_node = -1;
+		algorithm = TSP::Algorithm::DP;
 	};
 
 	// Destructor
@@ -53,17 +55,22 @@ public:
 	void join();
 
 	// Get thread id of internal thread
-	long get_tid() {return (long)_id;}
+	long get_tid() { return (long)_id; }
 
 	// Index of node to start touring at
 	int start_node;
 
+	// distance matrix
+	std::vector<std::vector<double>> distance;
+
 	// Pointer to TSP object
 	TSP *mytsp;
+
+	// aLgorithm to use
+	TSP::Algorithm algorithm;
 
 	// Assigned ID (for tracking purposes)
 	int my_id;
 };
-
 
 #endif
