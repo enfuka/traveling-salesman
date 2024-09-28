@@ -7,10 +7,10 @@ LIBS = -lm -L/usr/include -lpthread
 
 
 %.o: %.cpp
-	g++ -g -Wall -c -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	mpicxx -g -Wall -c -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 
 tsp: $(OBJS)
-	g++  -o "tsp" $(OBJS) $(LIBS) 
+	mpicxx  -o "tsp" $(OBJS) $(LIBS) 
 
 all: tsp
 

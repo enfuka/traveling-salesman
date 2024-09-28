@@ -24,7 +24,7 @@ private:
     const double POSITIVE_INFINITY = std::numeric_limits<double>::infinity();
     const double NEGATIVE_INFINITY = -std::numeric_limits<double>::infinity();
 
-    int N_, start_, is_open_;
+    long long N_, start_, is_open_;
     std::vector<std::vector<double>> distance_;
     std::list<int> tour_;
     double minTourCost_;
@@ -83,7 +83,7 @@ private:
         if (ranSolver_)
             return;
 
-        int END_STATE = (1 << N_) - 1;
+        long long END_STATE = (1 << N_) - 1;
         std::vector<std::vector<double>> memo(N_, std::vector<double>(1 << N_, POSITIVE_INFINITY));
 
         // Add all outgoing edges from the starting node to memo table.
@@ -166,6 +166,8 @@ private:
         }
 
         tour_.push_front(start_);
+
+        tour_.push_back(start_);
 
         ranSolver_ = true;
     }

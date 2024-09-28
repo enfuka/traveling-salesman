@@ -15,6 +15,10 @@
 
 #define NUM_THREADS 4
 
+#define TOTAL_CITY_COUNT 32
+
+#define BLOCK_SIDE_LENGTH 100
+
 int main(int argc, char **argv)
 {
 	// Check that user entered filename on command line
@@ -30,31 +34,32 @@ int main(int argc, char **argv)
 	o.append(".tour");
 
 	// Create new tsp object
-	TSP tsp(f, o);
-	int n = tsp.get_size();
+	// TSP tsp(f,o);
 
-	// Start timing
-	clock_t t = clock();
-	clock_t t2;
+	// int n = tsp.get_size();
 
-	// Read cities from file
-	if (DEBUG)
-		cout << "Reading cities" << endl;
-	tsp.readCities();
-	if (DEBUG)
-		cout << "Time to read cities: "
-			 << ((float)(clock() - t)) / CLOCKS_PER_SEC << " s\n";
+	// // Start timing
+	// clock_t t = clock();
+	// clock_t t2;
 
-	cout << "number of cities: " << tsp.n << endl;
+	// // Read cities from file
+	// if (DEBUG)
+	// 	cout << "Reading cities" << endl;
+	// tsp.readCities();
+	// if (DEBUG)
+	// 	cout << "Time to read cities: "
+	// 		 << ((float)(clock() - t)) / CLOCKS_PER_SEC << " s\n";
 
-	// Fill N x N matrix with distances between nodes
-	if (DEBUG)
-		cout << "\nFilling matrix" << endl;
-	t2 = clock();
-	tsp.fillMatrix_threads();
-	if (DEBUG)
-		cout << "Time to fill matrix: " << ((float)(clock() - t2)) / CPS
-			 << " s\n";
+	// cout << "number of cities: " << tsp.n << endl;
+
+	// // Fill N x N matrix with distances between nodes
+	// if (DEBUG)
+	// 	cout << "\nFilling matrix" << endl;
+	// t2 = clock();
+	// tsp.fillMatrix_threads();
+	// if (DEBUG)
+	// 	cout << "Time to fill matrix: " << ((float)(clock() - t2)) / CPS
+	// 		 << " s\n";
 
 	// // Find a MST T in graph G
 	// if (DEBUG)
@@ -189,13 +194,33 @@ int main(int argc, char **argv)
 	// tsp.emst();
 	// tsp.printPath();
 
-	// cout << endl;
+	TSP tsp(TOTAL_CITY_COUNT, NUM_THREADS, BLOCK_SIDE_LENGTH);
 
-	// tsp.create_2D_grid(tsp.cities, tsp.get_size(), sqrt(NUM_THREADS), tsp.cell_ids);
+	tsp.parallel_solver(NUM_THREADS, TSP::Algorithm::EMST);
 
-	// tsp.parallel_DP(NUM_THREADS);
+	// TSP tsp(f, o);
 
-	tsp.parallel_solver(NUM_THREADS);
+	// tsp.readCities();
+	// tsp.printCities();
+
+	// cout << "number of cities: " << tsp.n << endl;
+
+	// tsp.calculate_distances();
+	// tsp.printDistanceGraph();
+	// tsp.serial_DP();
+	// tsp.serial_EMST();
+
+	// tsp.make_shorter();
+	// tsp.make_shorter();
+	// tsp.make_shorter();
+	// tsp.make_shorter();
+	// tsp.make_shorter();
+
+	// tsp.printPath();
+
+	// tsp.MPI_solver();
+
+	// tsp.dump_all_cities();
 
 	return 0;
 }

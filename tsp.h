@@ -23,6 +23,8 @@
 #include <stdio.h>
 #include <vector>
 
+#include <mpi.h>
+
 #include "twoOpt.h"
 #include "EMSTSolver.h"
 #include "DPSolver.h"
@@ -31,15 +33,6 @@ using namespace std;
 
 // Toggle printing debugging info to console
 #define DEBUG 0
-
-// Number of threads to use to fill N x N cost matrix
-#define THREADS 4
-
-// Calcualte lowest index controlled by thread id
-#define START_AT(id, p, n) ((id) * (n) / (p))
-
-// Calculate highest index controlled by thread id
-#define END_AT(id, p, n) (START_AT((id) + 1, p, n) - 1)
 
 class TSP
 {
@@ -58,26 +51,18 @@ private:
 	// Program-generated filename to output to
 	string outFname;
 
-	// List of odd nodes
-	vector<int> odds;
-
-	// Smaller cost matrix used to store distances between odd nodes
-	// Used to find minimum matching on odd nodes
-	int **cost;
-
 	// Initialization function
 	void getNodeCount();
-
-	// Find odd vertices in graph
-	void findOdds();
-
-	// Prim helper function
-	int minKey(int key[], bool mstSet[]);
 
 protected:
 public:
 	// Number of nodes
 	int n;
+
+	int thread_count;
+	int total_city_count;
+	int block_side_length;
+	int cities_per_block;
 
 	// Algorithm type
 	enum Algorithm
@@ -86,48 +71,25 @@ public:
 		EMST
 	};
 
-	// euler circuit
-	vector<int> circuit;
+	// Final tour
+	vector<int> final_tour;
 
 	// Store cities and coords read in from file
 	vector<City> cities;
 
 	// Full n x n cost matrix of distances between each city
 	int **graph;
-	// vector version of graph
-	std::vector<std::vector<double>> distance;
 
-	// Current shortest path length
+	// Shortest path length
 	int pathLength;
-
-	// Adjacency list
-	// Array of n dynamic arrays, each holding a list of nodes it's index is attached to
-	vector<int> *adjlist;
-
-	vector<int> cell_ids;
-
-	int start_idx[THREADS];
-
-	int end_idx[THREADS];
-
-	// n x 3 array to store start city, end city and length of TSP path,
-	// col 0 => starting index   col 1 => path length from that node
-	int **path_vals;
-
-	// Vector of tuples to store the path and length for each thread
-	vector<pair<list<int>, int>> thread_paths;
 
 	std::vector<std::pair<std::vector<TSP::City>, int>> thread_results;
 
-	vector<vector<City>> thread_city_mapping;
-
-	vector<vector<vector<double>>> thread_distance;
-
-	// Vector to hold the mapping of regular city index to thread city index
-	vector<vector<int>> thread_city_index;
-
-	// Constructor
+	// Constructor for serial TSP
 	TSP(string in, string out);
+
+	// Constructor for parallel TSP
+	TSP(int total_city_count, int thread_count, int block_side_length);
 
 	// Destructor
 	~TSP();
@@ -137,39 +99,33 @@ public:
 
 	// Initialization functions
 	void readCities();
-	void fillMatrix_threads();
 
-	void create_2D_grid(vector<City> cities, int n, int grid_size, vector<int> &cell_ids);
-
-	// Find MST using Prim's algorithm
-	void findMST_old();
-
-	// Find perfect matching
-	void perfect_matching();
-
-	// Find best node to start euler at
-	// Doesn't create tour, just checks
-	int find_best_path(int);
+	void calculate_distances();
 
 	// Create tour starting at specified node
 	void create_tour(int);
 
-	void DP();
+	void serial_DP();
 
-	void parallel_DP(int num_threads);
-
-	void parallel_solver(int num_threads, Algorithm algorithm);
-
-	void openTSP_EMST(int thread_id);
+	void serial_EMST();
 
 	void openTSP_DP(int thread_id);
 
-	void emst();
+	void openTSP_EMST(int thread_id);
 
-	// Private functions implemented by create_tour() and find_best_path()
-	void euler(int pos, vector<int> &);
-	// void euler(int);
-	void make_hamilton(vector<int> &, int &);
+	void parallel_solver(int num_threads, Algorithm algorithm);
+
+	void thread_populate_block(int thread_id, std::vector<TSP::City> &cities);
+
+	void dump_all_cities();
+
+	void print_thread_distances_EMST(int thread_id, int **emst_distances);
+
+	void print_thread_cities(int thread_id, std::vector<TSP::City> &cities);
+
+	void print_thread_distances_DP(int thread_id, std::vector<std::vector<double>> &dp_distances);
+
+	void print_thread_paths(int num_threads);
 
 	// Calls twoOpt function
 	void make_shorter();
@@ -177,9 +133,8 @@ public:
 	// Debugging functions
 	void printCities();
 	void printDistanceGraph();
-	void printAdjList();
+	void MPI_solver();
 	void printResult();
-	void printEuler();
 	void printPath();
 
 	// Get node count
