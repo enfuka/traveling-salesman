@@ -80,6 +80,16 @@ private:
     void solve()
     {
 
+        if (N_ == 2)
+        {
+            tour_.push_back(0);
+            tour_.push_back(1);
+            tour_.push_back(0);
+            minTourCost_ = distance_[0][1];
+            ranSolver_ = true;
+            return;
+        }
+
         if (ranSolver_)
             return;
 
@@ -184,8 +194,8 @@ public:
         ranSolver_ = false;
         N_ = distance[0].size();
 
-        if (N_ <= 2)
-            throw std::invalid_argument("N <= 2 not yet supported.");
+        if (N_ < 2)
+            throw std::invalid_argument("N < 2 not yet supported.");
         if (N_ != distance.size())
             throw std::invalid_argument("Matrix must be square (n x n)");
         if (start < 0 || start >= N_)

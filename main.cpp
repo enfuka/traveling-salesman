@@ -1,226 +1,148 @@
-//==================================================================
-// File			: main.cpp
-// Author		: Rebecca Sagalyn
-// Date			: Aug 25, 2013
-// Description	: Driver for tsp.h
-//==================================================================
 #include <iostream>
 #include <climits>
 #include "tsp.h"
 #include "usage.h"
-#include "twoOpt.h"
-#include "MyThread.h" // thread wrapper class
-// The length was annoying me.
-#define CPS CLOCKS_PER_SEC
+#include "MyThread.h"
+#define CPMS CLOCKS_PER_SEC * 1000
 
 #define NUM_THREADS 4
 
-#define TOTAL_CITY_COUNT 32
+#define TOTAL_CITY_COUNT (NUM_THREADS * 8192)
 
 #define BLOCK_SIDE_LENGTH 100
 
 int main(int argc, char **argv)
 {
-	// Check that user entered filename on command line
+	// Check argument count
 	if (argc < 2)
-	{
 		usage();
-		exit(-1);
+
+	// Flags to check if mode and algorithm are set correctly
+	int mode_flag = 0;
+	int algo_flag = 0;
+
+	// Initialize MPI
+	MPI_Init(&argc, &argv);
+
+	// Get the number of processes
+	int world_size;
+	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+	// Get the rank of the process
+	int world_rank;
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	char *mode = argv[1];
+	char *algo = argv[2];
+
+	// Print total number of cities and number of threads
+	if (world_rank == 0)
+	{
+		if (strcmp(mode, "serial") != 0)
+		{
+			cout << "Total city count: " << TOTAL_CITY_COUNT << endl;
+			cout << "Number of threads: " << NUM_THREADS << endl;
+		}
 	}
 
-	// Read file names from input
-	string f, o;
-	f = o = argv[1];
-	o.append(".tour");
+	clock_t start;
+	clock_t end;
 
-	// Create new tsp object
-	// TSP tsp(f,o);
+	if (strcmp(mode, "MPI") == 0)
+	{
+		mode_flag = 1;
+		TSP tsp(TOTAL_CITY_COUNT, NUM_THREADS, BLOCK_SIDE_LENGTH);
+		if (strcmp(algo, "DP") == 0)
+		{
+			algo_flag = 1;
+			start = clock();
+			tsp.MPI_solver(TSP::Algorithm::DP, world_rank, world_size);
+			end = clock();
+			if (world_rank == 0)
+				cout << "MPI DP Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+		}
+		else if (strcmp(algo, "EMST") == 0)
+		{
+			algo_flag = 1;
+			start = clock();
+			tsp.MPI_solver(TSP::Algorithm::EMST, world_rank, world_size);
+			end = clock();
+			if (world_rank == 0)
+				cout << "MPI DP Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+		}
+		if (world_rank == 0)
+		{
+			tsp.fix_inversions();
+			tsp.printResults();
+		}
+	}
 
-	// int n = tsp.get_size();
+	if (world_rank == 0)
+	{
+		// Start timing
 
-	// // Start timing
-	// clock_t t = clock();
-	// clock_t t2;
+		if (strcmp(mode, "serial") == 0)
+		{
+			mode_flag = 1;
+			if (argc < 4)
+				usage();
+			// Read file name
+			string f, o;
+			f = o = argv[3];
+			o.append(".tour");
 
-	// // Read cities from file
-	// if (DEBUG)
-	// 	cout << "Reading cities" << endl;
-	// tsp.readCities();
-	// if (DEBUG)
-	// 	cout << "Time to read cities: "
-	// 		 << ((float)(clock() - t)) / CLOCKS_PER_SEC << " s\n";
+			TSP tsp(f, o);
+			tsp.readCities();
+			if (strcmp(algo, "DP") == 0)
+			{
+				algo_flag = 1;
+				start = clock();
+				tsp.calculate_distances();
+				tsp.serial_DP();
+				end = clock();
+				cout << "Serial DP Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+			}
+			else if (strcmp(algo, "EMST") == 0)
+			{
+				algo_flag = 1;
+				start = clock();
+				tsp.calculate_distances();
+				tsp.serial_EMST();
+				end = clock();
+				cout << "Serial EMST Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+			}
+			tsp.printResults();
+		}
+		else if (strcmp(mode, "parallel") == 0)
+		{
+			mode_flag = 1;
+			TSP tsp(TOTAL_CITY_COUNT, NUM_THREADS, BLOCK_SIDE_LENGTH);
+			if (strcmp(algo, "DP") == 0)
+			{
+				algo_flag = 1;
+				start = clock();
+				tsp.parallel_solver(NUM_THREADS, TSP::Algorithm::DP);
+				end = clock();
+				cout << "Parallel DP Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+			}
+			else if (strcmp(algo, "EMST") == 0)
+			{
+				algo_flag = 1;
+				start = clock();
+				tsp.parallel_solver(NUM_THREADS, TSP::Algorithm::EMST);
+				end = clock();
+				cout << "Parallel EMST Time: " << ((float)(end - start)) / CPMS << " ms\n\n";
+			}
+			tsp.dump_all_cities();
+			tsp.fix_inversions();
+			tsp.printResults();
+		}
 
-	// cout << "number of cities: " << tsp.n << endl;
+		if (mode_flag == 0 || algo_flag == 0)
+			usage();
+	}
 
-	// // Fill N x N matrix with distances between nodes
-	// if (DEBUG)
-	// 	cout << "\nFilling matrix" << endl;
-	// t2 = clock();
-	// tsp.fillMatrix_threads();
-	// if (DEBUG)
-	// 	cout << "Time to fill matrix: " << ((float)(clock() - t2)) / CPS
-	// 		 << " s\n";
-
-	// // Find a MST T in graph G
-	// if (DEBUG)
-	// 	cout << "\nFinding mst" << endl;
-	// t2 = clock();
-	// tsp.findMST_old();
-	// if (DEBUG)
-	// 	cout << "Time to find mst: " << ((float)(clock() - t2)) / CPS
-	// 		 << " s\n";
-
-	// // Find a minimum weighted matching M for odd vertices in T
-	// if (DEBUG)
-	// 	cout << "\nFinding perfect matching" << endl;
-	// t2 = clock();
-	// tsp.perfect_matching();
-	// if (DEBUG)
-	// 	cout << "Time to find matching: " << ((float)(clock() - t2)) / CPS
-	// 		 << " s\n\n";
-
-	// // Find the node that leads to the best path
-	// clock_t start, end;
-	// start = clock();
-
-	// // Create array of thread objects
-	// MyThread threads[NUM_THREADS];
-
-	// int best = INT_MAX;
-	// int bestIndex;
-	// int stop_here = NUM_THREADS;
-
-	// // Amount to increment starting node by each time
-	// int increment = 1; // by 1 if n < 1040
-
-	// if (n >= 600 && n < 1040)
-	// 	increment = 3;
-	// else if (n >= 1040 && n < 1800)
-	// 	increment = 8;
-	// else if (n >= 1800 && n < 3205)
-	// 	increment = 25; // ~ 220s @ 3200
-	// else if (n >= 3205 && n < 4005)
-	// 	increment = 50; // ~ 230s @ 4000
-	// else if (n >= 4005 && n < 5005)
-	// 	increment = 120; // ~ 200 @ 5000
-	// else if (n >= 5005 && n < 6500)
-	// 	increment = 250; // ~ 220s @ 6447
-	// else if (n >= 6500)
-	// 	increment = 500;
-
-	// int remaining = n;
-
-	// // Start at node zero
-	// int node = 0;
-
-	// // Count to get thread ids
-	// int count = 0;
-
-	// while (remaining >= increment)
-	// {
-	// 	// Keep track iteration when last node will be reached
-	// 	if (remaining < (NUM_THREADS * increment))
-	// 	{
-
-	// 		// each iteration advances NUM_THREADS * increment nodes
-	// 		stop_here = remaining / increment;
-	// 	}
-
-	// 	for (long t = 0; t < stop_here; t++)
-	// 	{
-	// 		// cout << "Thread " << count << " starting at node " << node << endl;
-	// 		threads[t].start_node = node;
-	// 		threads[t].my_id = count;
-	// 		threads[t].mytsp = &tsp;
-	// 		threads[t].start();
-	// 		node += increment;
-	// 		count++;
-	// 	}
-
-	// 	// Wait for all the threads
-	// 	for (long t = 0; t < stop_here; t++)
-	// 	{
-	// 		threads[t].join();
-	// 	}
-	// 	remaining -= (stop_here * increment);
-	// }
-
-	// cout << "count: " << count << endl;
-	// // Loop through each index used and find shortest path
-	// for (long t = 0; t < count; t++)
-	// {
-	// 	if (tsp.path_vals[t][1] < best)
-	// 	{
-	// 		bestIndex = tsp.path_vals[t][0];
-	// 		best = tsp.path_vals[t][1];
-	// 	}
-	// }
-
-	// end = clock();
-	// cout << "\nbest: " << best << " @ index " << bestIndex << endl;
-	// cout << "time: " << ((float)(end - start)) / CPS << "s\n";
-
-	// // Store best path
-	// tsp.create_tour(bestIndex);
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-
-	// cout << "\nFinal length: " << tsp.pathLength << endl;
-
-	// // Print to file
-	// tsp.printResult();
-
-	// if (DEBUG)
-	// 	cout << "\nTotal time: " << ((float)(clock() - t)) / CPS << "s\n";
-
-	// tsp.printAdjList();
-	// cout << endl;
-	// tsp.printDistanceGraph();
-	// cout << endl;
-	// tsp.printCities();
-
-	// tsp.printPath();
-
-	// cout << endl;
-
-	// tsp.DP();
-	// tsp.printPath();
-
-	// cout << endl;
-
-	// tsp.emst();
-	// tsp.printPath();
-
-	TSP tsp(TOTAL_CITY_COUNT, NUM_THREADS, BLOCK_SIDE_LENGTH);
-
-	tsp.parallel_solver(NUM_THREADS, TSP::Algorithm::EMST);
-
-	// TSP tsp(f, o);
-
-	// tsp.readCities();
-	// tsp.printCities();
-
-	// cout << "number of cities: " << tsp.n << endl;
-
-	// tsp.calculate_distances();
-	// tsp.printDistanceGraph();
-	// tsp.serial_DP();
-	// tsp.serial_EMST();
-
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-	// tsp.make_shorter();
-
-	// tsp.printPath();
-
-	// tsp.MPI_solver();
-
-	// tsp.dump_all_cities();
+	// Finalize the MPI environment
+	MPI_Finalize();
 
 	return 0;
 }

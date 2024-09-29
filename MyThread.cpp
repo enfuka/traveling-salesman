@@ -1,10 +1,3 @@
-//==================================================================
-// File		: mythread.h
-// Author	: rsagalyn
-// Date		: Aug 25, 2013
-// Description	: Subclass of threads.h, implements run()
-//==================================================================
-
 #include "MyThread.h"
 
 void MyThread::run()

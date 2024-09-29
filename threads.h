@@ -1,9 +1,3 @@
-//==================================================================
-// File			: threads.h
-// Author		: rsagalyn
-// Date			: Aug 25, 2013
-// Description	: Abstract thread encapsulation class
-//==================================================================
 #ifndef THREADS_H
 #define THREADS_H
 

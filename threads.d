@@ -32,7 +32,7 @@ threads.d: threads.cpp threads.h tsp.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/info_inln.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/win_inln.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/file_inln.h \
- twoOpt.h EMSTSolver.h DPSolver.h
+ EMSTSolver.h DPSolver.h
 threads.h:
 tsp.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/mpi.h:
@@ -68,6 +68,5 @@ tsp.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/info_inln.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/win_inln.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/file_inln.h:
-twoOpt.h:
 EMSTSolver.h:
 DPSolver.h:

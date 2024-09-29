@@ -1,5 +1,6 @@
 #include "tsp.h"
 #include "MyThread.h"
+#include "MPISolver.h"
 
 using namespace std;
 
@@ -22,7 +23,7 @@ TSP::TSP(string in, string out)
 	{
 		graph[i] = new int[n];
 		for (int j = 0; j < n; j++)
-			graph[i][j] = 0;
+			graph[i][j] = -1;
 	}
 }
 
@@ -30,13 +31,24 @@ TSP::TSP(string in, string out)
 TSP::TSP(int total_city_count, int thread_count, int block_side_length)
 
 {
+	n = total_city_count;
+
 	// calculate number of cities per block if running parallel
 	cities_per_block = total_city_count / thread_count;
 
 	// set block side length
 	this->block_side_length = block_side_length;
 
-	thread_results = std::vector<std::pair<std::vector<TSP::City>, int>>(thread_count);
+	thread_results = std::vector<std::pair<std::vector<City>, int>>(thread_count);
+
+	// Allocate memory
+	graph = new int *[n];
+	for (int i = 0; i < n; i++)
+	{
+		graph[i] = new int[n];
+		for (int j = 0; j < n; j++)
+			graph[i][j] = NULL;
+	}
 };
 
 TSP::~TSP()
@@ -45,14 +57,14 @@ TSP::~TSP()
 	// Destructor
 	/////////////////////////////////////////////////////
 	// Free memory
-	if (graph != NULL && n > 0)
-	{
-		for (int i = 0; i < n; i++)
-		{
-			delete[] graph[i];
-		}
-		delete[] graph;
-	}
+	// if (graph != NULL && n > 0)
+	// {
+	// 	for (int i = 0; i < n; i++)
+	// 	{
+	// 		delete[] graph[i];
+	// 	}
+	// 	delete[] graph;
+	// }
 }
 
 void TSP::getNodeCount()
@@ -96,7 +108,7 @@ void TSP::readCities()
 	inStream.close();
 };
 
-int TSP::get_distance(struct TSP::City c1, struct TSP::City c2)
+int TSP::calculate_distance(struct City c1, struct City c2)
 {
 	/////////////////////////////////////////////////////
 	// Calculate distance between c1 and c2
@@ -115,7 +127,7 @@ void TSP::calculate_distances()
 	{
 		for (int j = i; j < n; j++)
 		{
-			graph[i][j] = graph[j][i] = get_distance(cities[i], cities[j]);
+			graph[i][j] = graph[j][i] = calculate_distance(cities[i], cities[j]);
 		}
 	}
 }
@@ -140,7 +152,7 @@ void TSP::serial_DP()
 
 	final_tour.clear();
 	for (std::list<int>::iterator it = tour.begin(); it != tour.end(); ++it)
-		final_tour.push_back(*it);
+		final_tour.push_back(cities[*it]);
 }
 
 void TSP::serial_EMST()
@@ -170,7 +182,7 @@ void TSP::serial_EMST()
 
 	final_tour.clear();
 	for (std::vector<int>::iterator it = tour.begin(); it != tour.end(); ++it)
-		final_tour.push_back(*it);
+		final_tour.push_back(cities[*it]);
 }
 
 void TSP::parallel_solver(int num_threads, Algorithm algorithm)
@@ -185,8 +197,6 @@ void TSP::parallel_solver(int num_threads, Algorithm algorithm)
 		threads[i].algorithm = algorithm;
 		threads[i].my_id = i;
 		threads[i].start();
-		// sleep for a bit so we can see the output
-		sleep(1);
 	}
 
 	// Wait for all the threads
@@ -195,13 +205,14 @@ void TSP::parallel_solver(int num_threads, Algorithm algorithm)
 		threads[i].join();
 	}
 
-	print_thread_paths(num_threads);
+	if (DEBUG)
+		print_thread_paths(num_threads);
 
 	// Stich together the paths from each thread
 	// At the end of a row, continue adding the next row in the reverse order
 	int grid_side = sqrt(num_threads);
-	std::vector<TSP::City> tour;
-	int pathLength = 0;
+	std::vector<City> tour;
+	pathLength = 0;
 	for (int row = 0; row < grid_side; row++)
 	{
 		if (row % 2 != 0)
@@ -216,11 +227,11 @@ void TSP::parallel_solver(int num_threads, Algorithm algorithm)
 				// Add the distance between the last city of the previous block and the first city of the current block
 				if (column != grid_side - 1) // unless last column
 				{
-					pathLength += get_distance(thread_results[thread_id + 1].first.back(), thread_results[thread_id].first.front());
+					pathLength += calculate_distance(thread_results[thread_id + 1].first.back(), thread_results[thread_id].first.front());
 				}
-				else // if last column
+				else // if last columns
 				{
-					pathLength += get_distance(thread_results[thread_id - grid_side].first.back(), thread_results[thread_id].first.front());
+					pathLength += calculate_distance(thread_results[thread_id - grid_side].first.back(), thread_results[thread_id].first.front());
 				}
 			}
 		}
@@ -236,32 +247,27 @@ void TSP::parallel_solver(int num_threads, Algorithm algorithm)
 				// Add the distance between the last city of the previous block and the first city of the current block
 				if (column != 0) // unless first column
 				{
-					pathLength += get_distance(thread_results[thread_id - 1].first.back(), thread_results[thread_id].first.front());
+					pathLength += calculate_distance(thread_results[thread_id - 1].first.back(), thread_results[thread_id].first.front());
 				}
 				else if (row != 0) // unless first row but first column
 				{
-					pathLength += get_distance(thread_results[thread_id - grid_side].first.back(), thread_results[thread_id].first.front());
+					pathLength += calculate_distance(thread_results[thread_id - grid_side].first.back(), thread_results[thread_id].first.front());
 				}
 			}
 		}
 	}
 
 	// Add the distance between the last city and the first city
-	City last_city = (grid_side % 2 != 0) ? thread_results[num_threads - 1].first.back() : thread_results[num_threads - grid_side].first.back();
-
-	pathLength += get_distance(last_city, thread_results[0].first.front());
+	City last_city = tour.back();
+	pathLength += calculate_distance(last_city, thread_results[0].first.front());
 
 	// Add first city to end of tour
 	tour.push_back(thread_results[0].first.front());
 
-	// Print the final path and length
-	cout << "Final path: ";
-	for (int i = 0; i < tour.size(); i++)
-	{
-		cout << tour[i].id << " ";
-	}
-	cout << endl;
-	cout << "Final length: " << pathLength << endl;
+	// Set final tour
+	final_tour.clear();
+	for (std::vector<City>::iterator it = tour.begin(); it != tour.end(); ++it)
+		final_tour.push_back(*it);
 }
 
 // Function that each thread will run for the EMST parallel implementation
@@ -272,7 +278,8 @@ void TSP::openTSP_EMST(int thread_id)
 
 	thread_populate_block(thread_id, cities);
 
-	print_thread_cities(thread_id, cities);
+	if (DEBUG)
+		print_thread_cities(thread_id, cities);
 
 	// Calculate the distance between each pair of cities
 	int **emst_distances = new int *[cities_per_block];
@@ -281,11 +288,14 @@ void TSP::openTSP_EMST(int thread_id)
 		emst_distances[i] = new int[cities_per_block];
 		for (int j = 0; j < cities_per_block; j++)
 		{
-			emst_distances[i][j] = get_distance(cities[i], cities[j]);
+			emst_distances[i][j] = calculate_distance(cities[i], cities[j]);
+			// Record the distance to global graph
+			graph[thread_id * cities_per_block + i][thread_id * cities_per_block + j] = emst_distances[i][j];
 		}
 	}
 
-	print_thread_distances_EMST(thread_id, emst_distances);
+	if (DEBUG)
+		print_thread_distances_EMST(thread_id, emst_distances);
 
 	// Find the path and length for the thread
 	std::vector<int> tour;
@@ -295,7 +305,7 @@ void TSP::openTSP_EMST(int thread_id)
 	pathLength = emst.get_cost();
 
 	// Map tour to city objects, skip the last city
-	std::vector<TSP::City> tour_with_coordinates;
+	std::vector<City> tour_with_coordinates;
 	for (std::vector<int>::iterator it = tour.begin(); it != std::prev(tour.end()); ++it)
 	{
 		tour_with_coordinates.push_back(cities[*it]);
@@ -312,7 +322,8 @@ void TSP::openTSP_DP(int thread_id)
 
 	thread_populate_block(thread_id, cities);
 
-	print_thread_cities(thread_id, cities);
+	if (DEBUG)
+		print_thread_cities(thread_id, cities);
 
 	// Calculate the distance between each pair of cities
 	std::vector<std::vector<double>> dp_distances = std::vector<std::vector<double>>(cities_per_block, std::vector<double>(cities_per_block));
@@ -320,11 +331,14 @@ void TSP::openTSP_DP(int thread_id)
 	{
 		for (int j = 0; j < cities_per_block; j++)
 		{
-			dp_distances[i][j] = get_distance(cities[i], cities[j]);
+			dp_distances[i][j] = calculate_distance(cities[i], cities[j]);
+			// Record the distance to global graph
+			graph[thread_id * cities_per_block + i][thread_id * cities_per_block + j] = dp_distances[i][j];
 		}
 	}
 
-	print_thread_distances_DP(thread_id, dp_distances);
+	if (DEBUG)
+		print_thread_distances_DP(thread_id, dp_distances);
 
 	// Find the path and length for the thread
 	std::list<int> tour;
@@ -333,15 +347,17 @@ void TSP::openTSP_DP(int thread_id)
 	tour = dp.getTour();
 	pathLength = dp.getTourCost();
 
-	// Print tour
-	cout << "Thread " << thread_id << " tour: ";
-	for (std::list<int>::iterator it = tour.begin(); it != tour.end(); ++it)
-	{
-		cout << *it << " ";
+	if (DEBUG)
+	{ // Print tour
+		cout << "Thread " << thread_id << " tour: ";
+		for (std::list<int>::iterator it = tour.begin(); it != tour.end(); ++it)
+		{
+			cout << *it << " ";
+		}
 	}
 
 	// Map tour to city objects
-	std::vector<TSP::City> tour_with_coordinates;
+	std::vector<City> tour_with_coordinates;
 	for (std::list<int>::iterator it = tour.begin(); it != prev(tour.end()); ++it)
 	{
 		tour_with_coordinates.push_back(cities[*it]);
@@ -351,13 +367,13 @@ void TSP::openTSP_DP(int thread_id)
 	thread_results[thread_id] = make_pair(tour_with_coordinates, pathLength);
 }
 
-void TSP::make_shorter()
+void TSP::fix_inversions()
 {
 	// Modify final_tour & pathLength
 	twoOpt(graph, final_tour, pathLength, n);
 }
 
-void TSP::thread_populate_block(int thread_id, std::vector<TSP::City> &cities)
+void TSP::thread_populate_block(int thread_id, std::vector<City> &cities)
 {
 	// seed random number generator
 	srand(thread_id);
@@ -389,134 +405,33 @@ void TSP::dump_all_cities()
 	outputStream.close();
 }
 
-void TSP::MPI_solver()
-{
-	// MPI implementation
-
-	// Regular array to store the results
-	City *path;
-	int total_path_length;
-
-	// Initialize MPI
-	MPI_Init(NULL, NULL);
-
-	// Get the number of processes
-	int world_size;
-	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
-
-	// Get the rank of the process
-	int world_rank;
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-
-	// Get the name of the processor
-	char processor_name[MPI_MAX_PROCESSOR_NAME];
-	int name_len;
-	MPI_Get_processor_name(processor_name, &name_len);
-
-	// Print off a hello world message
-	printf("Hello world from processor %s, rank %d out of %d processors\n",
-		   processor_name, world_rank, world_size);
-
-	// // allocate memory for the results
-	// process_results = std::vector<std::pair<std::vector<TSP::City>, int>>(world_size);
-
-	path = new City[world_size * cities_per_block];
-
-	// Create a new vector of cities for the thread
-	vector<City> cities;
-
-	thread_populate_block(world_rank, cities);
-
-	print_thread_cities(world_rank, cities);
-
-	// Calculate the distance between each pair of cities
-	int **emst_distances = new int *[cities_per_block];
-	for (int i = 0; i < cities_per_block; i++)
-	{
-		emst_distances[i] = new int[cities_per_block];
-		for (int j = 0; j < cities_per_block; j++)
-		{
-			emst_distances[i][j] = get_distance(cities[i], cities[j]);
-		}
-	}
-
-	print_thread_distances_EMST(world_rank, emst_distances);
-
-	// Find the path and length for the thread
-	std::vector<int> tour;
-	int pathLength;
-	EMSTSolver emst(cities_per_block, emst_distances, 0);
-	tour = emst.find_path();
-	pathLength = emst.get_cost();
-
-	// Map tour to city objects, skip the last city
-	std::vector<TSP::City> tour_with_coordinates;
-	for (std::vector<int>::iterator it = tour.begin(); it != std::prev(tour.end()); ++it)
-	{
-		tour_with_coordinates.push_back(cities[*it]);
-	}
-
-	// Convert the tour to a simple array of city ids
-	City *tour_simple = new City[cities_per_block];
-	for (int i = 0; i < cities_per_block; i++)
-	{
-		tour_simple[i] = tour_with_coordinates[i];
-	}
-
-	// Sync all the threads
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	// Gather all the results
-	MPI_Gather(tour_simple, cities_per_block * sizeof(City), MPI_BYTE, path, cities_per_block * sizeof(City), MPI_BYTE, 0, MPI_COMM_WORLD);
-
-	// Gather all the path lengths
-	MPI_Reduce(&pathLength, &total_path_length, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-	// Print the results
-	if (world_rank == 0)
-	{
-		// Add the distance between the last city and the first city
-		City last_city = path[world_size * cities_per_block - 1];
-		total_path_length += get_distance(last_city, path[0]);
-		// Print the final path
-		cout << "Final path: " << endl;
-		for (int i = 0; i < world_size * cities_per_block; i++)
-		{
-			cout << path[i].id << " " << path[i].x << " " << path[i].y << endl;
-		}
-		cout << "Final length: " << total_path_length << endl;
-	}
-
-	// Finalize the MPI environment
-	MPI_Finalize();
-
-	// Free memory
-	free(path);
-}
-
 //================================ PRINT FUNCTIONS ================================//
 
-void TSP::printResult()
+void TSP::writeResults()
 {
 	ofstream outputStream;
 	outputStream.open(outFname.c_str(), ios::out);
 	outputStream << pathLength << endl;
-	for (vector<int>::iterator it = final_tour.begin(); it != final_tour.end(); ++it)
+	for (vector<City>::iterator it = final_tour.begin(); it != final_tour.end(); ++it)
 	{
 		// for (vector<int>::iterator it = circuit.begin(); it != circuit.end()-1; ++it) {
-		outputStream << *it << endl;
+		outputStream << it->id << endl;
 	}
 	// outputStream << *(circuit.end()-1);
 	outputStream.close();
 };
 
-void TSP::printPath()
+void TSP::printResults()
 {
 	cout << endl;
-	for (vector<int>::iterator it = final_tour.begin(); it != final_tour.end() - 1; ++it)
+	if (n < 100)
 	{
-		cout << *it << " to " << *(it + 1) << " ";
-		cout << graph[*it][*(it + 1)] << endl;
+		cout << "Final path: ";
+		// Print the path
+		for (vector<City>::iterator it = final_tour.begin(); it != final_tour.end(); ++it)
+		{
+			cout << it->id << " ";
+		}
 	}
 
 	cout << "\nLength: " << pathLength << endl
@@ -543,7 +458,7 @@ void TSP::printDistanceGraph()
 	}
 };
 
-void TSP::print_thread_cities(int thread_id, std::vector<TSP::City> &cities)
+void TSP::print_thread_cities(int thread_id, std::vector<City> &cities)
 {
 	// Print cities
 	cout << endl;
