@@ -1,13 +1,15 @@
 
 #include <bits/stdc++.h>
+#include "par_boruvka_openmp.h"
 using namespace std;
+
+typedef std::chrono::milliseconds time_type;
 
 class EMSTSolver
 {
 private:
-    // Number of vertices in the graph
-    int V;
-    int **graph;
+    int V; // Number of vertices in the graph
+    int **distance_matrix;
     int is_open;
 
 public:
@@ -19,7 +21,7 @@ public:
     EMSTSolver(int V, int **graph, int is_open)
     {
         this->V = V;
-        this->graph = graph;
+        this->distance_matrix = graph;
         this->is_open = is_open;
 
         // if open, set all distances to node 0 to 0
@@ -37,9 +39,9 @@ public:
     {
         for (int i = 0; i < V; i++)
         {
-            delete[] graph[i];
+            delete[] distance_matrix[i];
         }
-        delete[] graph;
+        delete[] distance_matrix;
     }
 
     // Function to find the vertex with minimum key value
@@ -93,12 +95,72 @@ public:
             int u = minimum_key(key, mstSet);
             mstSet[u] = true;
             for (int v = 0; v < V; v++)
-                if (graph[u][v] && mstSet[v] == false && graph[u][v] < key[v])
-                    parent[v] = u, key[v] = graph[u][v];
+                if (distance_matrix[u][v] && mstSet[v] == false && distance_matrix[u][v] < key[v])
+                    parent[v] = u, key[v] = distance_matrix[u][v];
         }
         vector<vector<int>> v;
         v = MST(parent);
         return v;
+    }
+
+    vector<vector<int>> boruvkaMST()
+    {
+        // Map distance matrix to graph
+        graph<edge> edge_vector;
+        for (int i = 0; i < V; i++)
+        {
+            for (int j = i + 1; j < V; j++)
+            {
+                edge_vector.push_back({i + 1, j + 1, distance_matrix[i][j]});
+            }
+        }
+
+        // // print the edges
+        // for (auto e : edge_vector)
+        // {
+        //     cout << get<0>(e) << " " << get<1>(e) << " " << get<2>(e) << endl;
+        // }
+
+        int NTHREADS = 4;
+        auto start = std::chrono::high_resolution_clock::now();
+        direct_flat_graph dfg(edge_vector, V, NTHREADS);
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<time_type>(stop - start);
+
+        cout << "Time taken to create the graph: " << duration.count() << "ms" << endl;
+
+        // // print the dfg.gr
+        // for (int i = 0; i < dfg.gr.size(); i++)
+        // {
+        //     cout << get<0>(dfg.gr[i]) << " " << get<1>(dfg.gr[i]) << " " << get<2>(dfg.gr[i]) << endl;
+        // }
+
+        // // print nums
+        // for (int i = 1; i <= V; i++)
+        // {
+        //     cout << dfg.first_id(i) << " " << dfg.last_id(i) << endl;
+        // }
+
+        graph<edge> mst_result = boruvka_mst_par_openmp(dfg, V, NTHREADS);
+
+        // Convert the result to the format expected by the TSP solver
+        vector<vector<int>> mst;
+        for (auto e : mst_result)
+        {
+            vector<int> edge;
+            edge.push_back(get<0>(e) == 0 ? 0 : get<0>(e) - 1);
+            edge.push_back(get<1>(e) == 0 ? 0 : get<1>(e) - 1);
+            mst.push_back(edge);
+            edge.clear();
+        }
+
+        // // Print the MST
+        // for (auto e : mst)
+        // {
+        //     cout << e[0] << " " << e[1] << endl;
+        // }
+
+        return mst;
     }
 
     // getting the preorder walk of the MST using DFS
@@ -133,7 +195,7 @@ public:
         int cost = 0;
         for (int i = 0; i < path.size() - 1; i++)
         {
-            cost += graph[path[i]][path[i + 1]];
+            cost += distance_matrix[path[i]][path[i + 1]];
         }
         return cost;
     }
@@ -141,7 +203,8 @@ public:
     vector<int> find_path()
     {
         // getting the output as MST
-        v = primMST();
+        //  v = primMST();
+        v = boruvkaMST();
 
         // creating a dynamic matrix
         int **edges_list = new int *[V];

@@ -32,7 +32,7 @@ twoOpt.d: twoOpt.cpp tsp.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/info_inln.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/win_inln.h \
  /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/file_inln.h \
- EMSTSolver.h DPSolver.h
+ EMSTSolver.h par_boruvka_openmp.h graph_types.h DPSolver.h
 tsp.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/mpi.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/mpi_portable_platform.h:
@@ -68,4 +68,6 @@ tsp.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/win_inln.h:
 /usr/lib/x86_64-linux-gnu/openmpi/include/openmpi/ompi/mpi/cxx/file_inln.h:
 EMSTSolver.h:
+par_boruvka_openmp.h:
+graph_types.h:
 DPSolver.h:
