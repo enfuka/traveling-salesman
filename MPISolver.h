@@ -2,6 +2,183 @@
 
 using namespace std;
 
+int TSP::swapCost(City l1, City l2, City r1, City r2)
+{
+    // Print the cities
+    cout << "l1: " << l1.id << " l2: " << l2.id << " r1: " << r1.id << " r2: " << r2.id << endl;
+
+    int distance_difference = calculate_distance(l1, r2) + calculate_distance(r1, l2) - calculate_distance(l1, l2) - calculate_distance(r1, r2);
+
+    cout << "Distance Difference: " << distance_difference << endl;
+
+    return distance_difference;
+}
+
+TSP::City *TSP::swapEdges(City *tsp1, City *tsp2, int tsp1_cut, int tsp2_cut, int lenght1, int length2, int result_size)
+{
+    // new array to hold the new tsp
+    City *newTSP = new City[result_size];
+
+    for (int i = 0, tsp1_index = 0, tsp2_index = tsp2_cut; i < result_size; i++)
+    {
+        if (i <= tsp1_cut)
+        {
+            newTSP[i] = tsp1[tsp1_index];
+            tsp1_index++;
+        }
+        else if (tsp2_index >= 0)
+        {
+            newTSP[i] = tsp2[tsp2_index]; // start from the cut point and go backwards
+            tsp2_index--;
+        }
+        else if (abs(tsp2_index) < length2 - tsp2_cut)
+        {
+            newTSP[i] = tsp2[length2 + tsp2_index];
+            tsp2_index--;
+        }
+        else
+        {
+            newTSP[i] = tsp1[tsp1_index];
+            tsp1_index++;
+        }
+    }
+
+    return newTSP;
+}
+
+TSP::City *TSP::tspMerge(City *tsp1, City *tsp2, int length1, int length2, int result_size, int &costIncrease)
+{
+
+    // Print the tsp1
+    cout << "TSP1: ";
+    for (int i = 0; i < length1; i++)
+    {
+        cout << tsp1[i].id << " ";
+    }
+    cout << endl;
+
+    // Print the tsp2
+    cout << "TSP2: ";
+    for (int i = 0; i < length2; i++)
+    {
+        cout << tsp2[i].id << " ";
+    }
+    cout << endl;
+
+    // Print result size
+    cout << "Result Size: " << result_size << endl;
+    cout << "Length1: " << length1 << endl;
+    cout << "Length2: " << length2 << endl;
+
+    // new array to hold the new tsp
+    City *newTSP = new City[result_size];
+
+    int minCost = INT_MAX;
+    int tsp1_cut = 0;
+    int tsp2_cut = 0;
+    // Iterate over all pairs of edges to find the best swap with the lowest increase in cost
+    for (int i = 0; i < length1; i++)
+    {
+        for (int j = 0; j < length2; j++)
+        {
+            // Calculate the cost of swapping the edges
+            int cost = swapCost(tsp1[i], tsp1[(i + 1) % length1], tsp2[j], tsp2[(j + 1) % length2]);
+
+            // If the cost is less than the minimum cost, update the minimum cost and store the indices
+            if (cost < minCost)
+            {
+                minCost = cost;
+                tsp1_cut = i;
+                tsp2_cut = j;
+            }
+            // print the cost
+            cout << "Cost: " << cost << endl;
+            cout << "Min Cost: " << minCost << endl;
+        }
+    }
+
+    // Swap the edges
+    newTSP = swapEdges(tsp1, tsp2, tsp1_cut, tsp2_cut, length1, length2, result_size);
+
+    costIncrease = minCost;
+
+    return newTSP;
+}
+
+// void TSP::test()
+// {
+//     int length1 = 5;
+//     int length2 = 7;
+
+//     // test swap edges
+//     City *tsp1 = new City[length1];
+//     City *tsp2 = new City[length2];
+
+//     // populate tsp1
+//     for (int i = 0; i < length1; i++)
+//     {
+//         tsp1[i].id = i;
+//     }
+
+//     // populate tsp2
+//     tsp2[0].id = 11;
+//     for (int i = 0; i < length2 - 1; i++)
+//     {
+//         tsp2[i + 1].id = i + length1;
+//     }
+
+//     // print tsp1
+//     cout << "TSP1: ";
+//     for (int i = 0; i < length1; i++)
+//     {
+//         cout << tsp1[i].id << " ";
+//     }
+//     cout << endl;
+
+//     // print tsp2
+//     cout << "TSP2: ";
+//     for (int i = 0; i < length2; i++)
+//     {
+//         cout << tsp2[i].id << " ";
+//     }
+//     cout << endl;
+
+//     // Create mock distances that are random
+//     int **distances = new int *[length1 + length2];
+//     for (int i = 0; i < length1 + length2; i++)
+//     {
+//         distances[i] = new int[length1 + length2];
+//         for (int j = 0; j < length1 + length2; j++)
+//         {
+//             distances[i][j] = 1;
+//         }
+//     }
+
+//     // Create a new tsp to store the result
+
+//     City *result = tspMerge(tsp1, tsp2, length1, length2, length1 + length2);
+
+//     // print the result
+//     cout << "Result: ";
+//     for (int i = 0; i < length1 + length2; i++)
+//     {
+//         cout << result[i].id << " ";
+//     }
+//     cout << endl;
+
+//     // swap edges
+
+//     City *newTSP = swapEdges(tsp1, tsp2, 2, 3, 5, 7, 12);
+
+//     // print new tsp
+//     cout << "New TSP: ";
+//     for (int i = 0; i < 12; i++)
+//     {
+//         cout << newTSP[i].id << " ";
+//     }
+//     cout << endl;
+// }
+
 // MPI implementation
 void TSP::MPI_solver(Algorithm algorithm, int my_world_rank, int world_size)
 {
@@ -11,8 +188,6 @@ void TSP::MPI_solver(Algorithm algorithm, int my_world_rank, int world_size)
     int wrap_around[ndims], reorder;
     int my_cart_rank;
     int nrows, ncols;
-    int local_val, row_sum = 0;
-    int col_val, col_sum = 0;
 
     MPI_Comm comm2D;     // Cartesian communicator
     MPI_Comm comm1D_row; // Communicator for row split
@@ -137,36 +312,57 @@ void TSP::MPI_solver(Algorithm algorithm, int my_world_rank, int world_size)
         }
     }
 
-    // Convert the tour to a simple array of city ids
+    // Convert the tour to a simple array of cities ?????????
     City *block_path = new City[cities_per_block];
     for (int i = 0; i < cities_per_block; i++)
     {
         block_path[i] = tour_with_coordinates[i];
     }
 
-    // MOCK STICHING (linear)
-    local_val = my_world_rank;
-    int recv_val;
+    // Make sure all threads have finished before stiching
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    //////// STICHING ////////
+
+    // Array to store row path
+    City *row_path = new City[ncols * cities_per_block];
+    // Array to store received row path
+    City *recv_path_row = new City[ncols * cities_per_block];
+    // Array to store col path
+    City *col_path = new City[nrows * ncols * cities_per_block];
+    // Array to store received col path
+    City *recv_path_col = new City[nrows * ncols * cities_per_block];
 
     // Stich together block TSP solutions row-wise, each row separately in parallel
     for (int cur_sticher = 1; cur_sticher < ncols; cur_sticher++)
     {
+        int message_size = cities_per_block * sizeof(City) * cur_sticher; // size of the tsp grows each iteration
         // SEND
         if (my_row_rank == cur_sticher - 1) // if I am the sender (one before the processor that stiches)
         {
             int destination = my_row_rank + 1;
             if (my_row_rank == 0)
-                MPI_Send(&local_val, 1, MPI_INT, destination, 0, comm1D_row);
+                MPI_Send(block_path, message_size, MPI_BYTE, destination, 0, comm1D_row);
             else
-                MPI_Send(&row_sum, 1, MPI_INT, destination, 0, comm1D_row);
+                MPI_Send(row_path, message_size, MPI_BYTE, destination, 0, comm1D_row);
         }
         // RECEIVE
         if (my_row_rank == cur_sticher) // if I am the sticher
         {
             int source = my_row_rank - 1;
-            MPI_Recv(&recv_val, 1, MPI_INT, source, 0, comm1D_row, MPI_STATUS_IGNORE);
+            MPI_Recv(recv_path_row, message_size, MPI_BYTE, source, 0, comm1D_row, MPI_STATUS_IGNORE);
             // STICH
-            row_sum = local_val + recv_val;
+            // // Just concatenate the received path to the row path for now
+            // // Copy the elements from the first array
+            // for (int i = 0; i < cities_per_block * cur_sticher; i++)
+            //     row_path[i] = recv_path_row[i];
+            // // Copy the elements from the second array
+            // for (int i = 0; i < cities_per_block; i++)
+            //     row_path[cities_per_block * cur_sticher + i] = block_path[i];
+            int costIncrease;
+            row_path = tspMerge(recv_path_row, block_path, cities_per_block * cur_sticher, cities_per_block, cities_per_block * (cur_sticher + 1), costIncrease);
+            pathLength += costIncrease;
+            cout << "Cost Increase: " << costIncrease << endl;
         }
     }
 
@@ -177,34 +373,62 @@ void TSP::MPI_solver(Algorithm algorithm, int my_world_rank, int world_size)
     {
         for (int cur_sticher = 1; cur_sticher < nrows; cur_sticher++)
         {
+            int message_size = cities_per_block * sizeof(City) * cur_sticher * ncols; // size of the tsp grows each iteration
             // SEND
             if (my_col_rank == cur_sticher - 1) // if I am the sender (one before the processor that stiches)
             {
                 int destination = my_col_rank + 1;
                 if (my_col_rank == 0)
-                    MPI_Send(&row_sum, 1, MPI_INT, destination, 0, comm1D_col);
+                    MPI_Send(row_path, message_size, MPI_BYTE, destination, 0, comm1D_col);
                 else
-                    MPI_Send(&col_sum, 1, MPI_INT, destination, 0, comm1D_col);
+                    MPI_Send(col_path, message_size, MPI_BYTE, destination, 0, comm1D_col);
             }
             // RECEIVE
             if (my_col_rank == cur_sticher) // if I am the sticher
             {
                 int source = my_col_rank - 1;
-                MPI_Recv(&recv_val, 1, MPI_INT, source, 0, comm1D_col, MPI_STATUS_IGNORE);
+                MPI_Recv(recv_path_col, message_size, MPI_BYTE, source, 0, comm1D_col, MPI_STATUS_IGNORE);
                 // STICH
-                col_sum = row_sum + recv_val;
+                // Just concatenate the received path to the col path for now
+                // Copy the elements from the first array
+                // for (int i = 0; i < cities_per_block * cur_sticher * ncols; i++)
+                //     col_path[i] = recv_path_col[i];
+                // // Copy the elements from the second array
+                // for (int i = 0; i < ncols * cities_per_block; i++)
+                //     col_path[cities_per_block * cur_sticher * ncols + i] = row_path[i];
+                int costIncrease;
+                col_path = tspMerge(recv_path_col, row_path, cities_per_block * cur_sticher * ncols, cities_per_block * ncols, cities_per_block * (cur_sticher + 1) * ncols, costIncrease);
+                pathLength += costIncrease;
+                cout << "Cost Increase: " << costIncrease << endl;
             }
         }
     }
+    cout << "FINISHED:" << my_world_rank << endl;
+
+    MPI_Barrier(MPI_COMM_WORLD);
 
     if (my_row_rank == ncols - 1)
-        printf("P%d: RowSum: %d\n", my_world_rank, row_sum);
+    { // Print the row path
+        cout << "P" << my_world_rank << ": RowPath: ";
+        for (int i = 0; i < ncols * cities_per_block; i++)
+        {
+            cout << row_path[i].id << " ";
+        }
+        cout << endl;
+    }
 
     if (my_world_rank == world_size - 1)
-        printf("P%d: ColSum: %d\n", my_world_rank, col_sum);
+    { // Print the col path
+        cout << "P" << my_world_rank << ": ColPath: ";
+        for (int i = 0; i < nrows * ncols * cities_per_block; i++)
+        {
+            cout << col_path[i].id << " ";
+        }
+        cout << endl;
+    }
 
-    printf("WRank: %d, RowRank: %d, ColRank:%d, Coord: (%d, %d), RowSum: %d\n",
-           my_world_rank, my_row_rank, my_col_rank, my_coord[0], my_coord[1], row_sum);
+    // printf("WRank: %d, RowRank: %d, ColRank:%d, Coord: (%d, %d)\n",
+    //        my_world_rank, my_row_rank, my_col_rank, my_coord[0], my_coord[1]);
 
     //~~~~~~~~ Parallel Work (end) ~~~~~~~~//
 
@@ -276,7 +500,7 @@ void TSP::MPI_solver(Algorithm algorithm, int my_world_rank, int world_size)
         // Add first city to end of tour
         final_tour.push_back(full_raw_path[0]);
 
-        // Store the final tour
+        // Store the final tour length
         pathLength = total_path_length;
     }
 

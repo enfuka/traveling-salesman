@@ -127,6 +127,14 @@ public:
 
 	void print_thread_paths(int num_threads);
 
+	int swapCost(City l1, City l2, City r1, City r2);
+
+	City *swapEdges(City *tsp1, City *tsp2, int tsp1_cut, int tsp2_cut, int lenght1, int length2, int result_size);
+
+	TSP::City *tspMerge(City *tsp1, City *tsp2, int length1, int length2, int result_size, int &costIncrease);
+
+	void test();
+
 	void MPI_solver(Algorithm algorithm, int world_rank, int world_size);
 
 	int twoOpt(int **graph, vector<City> &path, int &pathLength, int n);

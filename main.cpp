@@ -5,9 +5,9 @@
 #include "MyThread.h"
 #define CPMS CLOCKS_PER_SEC * 1000
 
-#define NUM_THREADS 16
+#define NUM_THREADS 4
 
-#define TOTAL_CITY_COUNT (NUM_THREADS * 256)
+#define TOTAL_CITY_COUNT (NUM_THREADS * 8)
 
 #define BLOCK_SIDE_LENGTH 100
 
